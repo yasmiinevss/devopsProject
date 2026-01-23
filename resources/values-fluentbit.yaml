@@ -1,0 +1,134 @@
+serviceAccount:
+  create: true
+
+rbac:
+  create: true
+
+daemonSet:
+  enabled: true
+
+tolerations:
+  - operator: Exists
+
+extraConfigMaps:
+  - name: fluent-bit-custom-parsers
+    data:
+      custom_parsers.conf: |
+        [PARSER]
+            Name        uvicorn_access
+            Format      regex
+            Regex       ^(?<time>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (?<level>[A-Z]+):\s+(?<client_ip>[^:]+):(?<client_port>\d+)\s+-\s+"(?<method>[A-Z]+)\s+(?<path>[^ ]+)\s+(?<protocol>[^"]+)"\s+(?<status>\d{3})
+            Time_Key    time
+            Time_Format %Y-%m-%d %H:%M:%S
+
+        [PARSER]
+            Name        nginx_access
+            Format      regex
+            Regex       ^(?<remote>[^ ]+) [^ ]+ [^ ]+ \[(?<time>[^\]]+)\] "(?<method>[A-Z]+) (?<path>[^ ]+) (?<protocol>[^"]+)" (?<status>\d{3}) (?<bytes>\d+) "(?<referer>[^"]*)" "(?<agent>[^"]*)" "(?<forwarded_for>[^"]*)"
+            Time_Key    time
+            Time_Format %d/%b/%Y:%H:%M:%S %z
+
+extraVolumes:
+  - name: custom-parsers-vol
+    configMap:
+      name: fluent-bit-custom-parsers
+
+extraVolumeMounts:
+  - name: custom-parsers-vol
+    mountPath: /fluent-bit/etc/custom_parsers.conf
+    subPath: custom_parsers.conf
+
+config:
+  service: |
+    [SERVICE]
+        Flush         1
+        Daemon        Off
+        Log_Level     info
+        HTTP_Server   On
+        HTTP_Port     2020
+        Parsers_File  parsers.conf
+        Parsers_File  /fluent-bit/etc/custom_parsers.conf
+
+  inputs: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*.log
+        Tag               kube.*
+        DB                /var/log/flb_kube.db
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+
+  filters: |
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+    [FILTER]
+        Name                grep
+        Match               kube.*
+        Regex               $kubernetes['namespace_name'] ^todolist$
+
+    [FILTER]
+        Name                rewrite_tag
+        Match               kube.*
+        Rule                $kubernetes['container_name'] ^backend$  todolist.backend  true
+        Rule                $kubernetes['container_name'] ^frontend$ todolist.frontend true
+
+    [FILTER]
+        Name                parser
+        Match               todolist.backend
+        Key_Name            log
+        Parser              uvicorn_access
+        Reserve_Data        On
+
+    [FILTER]
+        Name                parser
+        Match               todolist.frontend
+        Key_Name            log
+        Parser              nginx_access
+        Reserve_Data        On
+
+    [FILTER]
+        Name                modify
+        Match               todolist.*
+        Add                 cluster  minikube
+
+  outputs: |
+    # Sortie pour OpenSearch
+    [OUTPUT]
+        Name                opensearch
+        Match               todolist.*
+        Host                opensearch-cluster-master.logging.svc.cluster.local
+        Port                9200
+        Logstash_Format     On
+        Logstash_Prefix     todolist
+        Replace_Dots        On
+        Suppress_Type_Name  On
+        # Recommandé : active TLS si OpenSearch l'exige (souvent par défaut)
+        # tls               On
+        # tls.verify        Off
+        Retry_Limit         False
+
+    # Optionnel : Sortie standard (stdout) pour débugger dans les logs du pod
+    [OUTPUT]
+        Name                stdout
+        Match               todolist.*
+
+volumeMounts:
+  - name: varlog
+    mountPath: /var/log
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+
+volumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers

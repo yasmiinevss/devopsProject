@@ -1,0 +1,29 @@
+# Values file for OpenSearch Dashboards Helm chart
+# Update: helm upgrade opensearch-dashboards opensearch/opensearch-dashboards -f values-opensearch-dashboards.yaml -n logging
+
+# OpenSearch connection (TLS enabled on OpenSearch)
+opensearchHosts: "http://opensearch-cluster-master:9200"
+
+extraEnvs:
+  - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
+    value: "true"
+
+# Dashboards config (force https + disable cert verification for dev/minikube)
+config:
+  opensearch_dashboards.yml: |
+    server.host: "0.0.0.0"
+    opensearch.hosts: ["http://opensearch-cluster-master:9200"]
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 5601
+
+# Resource limits
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: # L'identité du déploiement
+  name: frontend-deployment
+  namespace: todolist
+  labels: # Les étiquettes associées au déploiement
+    app: frontend
+spec:
+  replicas: 1
+  selector: # Pour pour identifier les pods gérés par ce déploiement
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: devops-project-frontend:latest
+        imagePullPolicy: IfNotPresent
+
+        ports:
+        - containerPort: 80
+
+       # On va ajouter les ressources
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+
+        # On va ajouter les configMaps et secrets
+        envFrom:
+          - configMapRef:
+              name: frontend-config

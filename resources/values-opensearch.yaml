@@ -1,0 +1,44 @@
+# Values file for OpenSearch Helm chart
+# Installation: helm install opensearch opensearch/opensearch -f values-opensearch.yaml -n logging --create-namespace
+
+# Single node configuration for development
+clusterName: opensearch-cluster
+replicas: 1  # Une seule instance pour économiser la mémoire
+bootstrap:
+  memoryLock: false
+
+# Persistence configuration
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""  # Use default storage class
+
+# Resource limits - Réduits pour économiser la mémoire
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 1
+    memory: 1Gi
+
+# Plugins configuration
+plugins:
+  enabled: true
+  installList:
+    - ingest-attachment
+    - mapper-size
+
+javaOpts: "-Xms256m -Xmx512m"
+
+service:
+  type: ClusterIP
+  ports:
+    http: 9200
+    transport: 9600
+
+config:
+  opensearch.yml: |-
+    cluster.name: opensearch-cluster
+    network.host: 0.0.0.0
+    plugins.security.disabled: true
