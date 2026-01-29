@@ -12,10 +12,13 @@ spec:
   namespaceSelector:
     matchNames:
       - todolist
+
   endpoints:
-    - port: http
-      path: /metrics
-      interval: 15s
+    - interval: 15s # intervalle de scrapping
+      port: http # nom du port à scrapper
+      path: /metrics 
+
+      # Relabelings pour ajouter des labels personnalisés
       relabelings:
         - sourceLabels: [__meta_kubernetes_pod_name]
           targetLabel: pod_name

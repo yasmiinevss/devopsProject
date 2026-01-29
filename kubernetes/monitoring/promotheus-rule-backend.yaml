@@ -1,0 +1,85 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: backend-alerts
+  namespace: todolist
+  labels:
+    release: kube-prometheus-stack
+    app: backend
+    # Ces labels sont importants pour que Prometheus découvre la PrometheusRule
+    # Ils doivent correspondre aux labels du RuleSelector dans la config Prometheus
+spec:
+  groups:
+  - name: backend.rules
+    interval: 30s
+    rules:
+    # Alerte : Backend down (pas de métriques depuis 2 minutes)
+    # Note: Le job name peut varier selon la configuration Prometheus
+    # Vérifier le nom réel avec: up{namespace="todolist",service="backend"}
+    - alert: BackendDown
+      expr: |
+        up{namespace="todolist",service="backend"} == 0
+        or
+        (absent(up{namespace="todolist",service="backend"}) == 1)
+      for: 2m
+      labels:
+        severity: critical
+        component: backend
+      annotations:
+        summary: "Backend is down"
+        description: "Le backend n'expose plus de métriques depuis 2 minutes. Le service est probablement down."
+
+    # Alerte : Taux d'erreurs 5xx élevé (> 10% sur 5 minutes)
+    - alert: HighErrorRate
+      expr: |
+        (
+          sum(rate(http_requests_total{namespace="todolist",status=~"5.."}[5m])) by (route)
+          /
+          sum(rate(http_requests_total{namespace="todolist"}[5m])) by (route)
+        ) * 100 > 10
+      for: 5m
+      labels:
+        severity: warning
+        component: backend
+      annotations:
+        summary: "Taux d'erreurs 5xx élevé sur {{ $labels.route }}"
+        description: "Le taux d'erreurs 5xx est de {{ $value | humanizePercentage }}% sur la route {{ $labels.route }} (seuil: 10%)"
+
+    # Alerte : Latence p95 élevée (> 1 seconde)
+    - alert: HighLatency
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(http_request_duration_seconds_bucket{namespace="todolist"}[5m])) by (le, route)
+        ) > 1
+      for: 5m
+      labels:
+        severity: warning
+        component: backend
+      annotations:
+        summary: "Latence p95 élevée sur {{ $labels.route }}"
+        description: "La latence p95 est de {{ $value | humanize }}s sur la route {{ $labels.route }} (seuil: 1s)"
+
+    # Alerte : Readiness probe échoue
+    - alert: BackendNotReady
+      expr: |
+        up{namespace="todolist",service="backend"} == 1 
+        and 
+        rate(http_requests_total{namespace="todolist",route="/ready",status="503"}[1m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+        component: backend
+      annotations:
+        summary: "Backend not ready"
+        description: "Le backend retourne 503 sur /ready, la base de données est probablement inaccessible."
+
+    # Alerte : Trop de requêtes en cours (> 100)
+    - alert: HighInflightRequests
+      expr: sum(http_inflight_requests{namespace="todolist"}) > 100
+      for: 2m
+      labels:
+        severity: warning
+        component: backend
+      annotations:
+        summary: "Trop de requêtes en cours"
+        description: "Il y a {{ $value }} requêtes en cours de traitement (seuil: 100)"

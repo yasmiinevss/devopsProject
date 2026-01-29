@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: backend
   namespace: todolist
+  labels:
+    app: backend # Pour que prometheus puisse identifier le service
 spec:
   selector:
     app: backend  # Sélectionne les pods avec l'étiquette app=backend
