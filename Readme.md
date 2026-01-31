@@ -25,7 +25,7 @@ Lancez ces commandes dans votre terminal principal :
 minikube start --driver=docker --memory=8192 --cpus=4
 minikube addons enable ingress
 ```
-##      IMPORTANT : Le Tunnel Ouvrez un nouveau terminal et lancez cette commande (laissez ce terminal ouvert) :
+##      IMPORTANT : Le Tunnel, Ouvrez un nouveau terminal et lancez cette commande (laissez ce terminal ouvert) :
 ```bash
 sudo minikube tunnel
 ```
