@@ -76,7 +76,7 @@ config:
         Name                rewrite_tag
         Match               kube.*
         Rule                $kubernetes['container_name'] ^backend$  todolist.backend  true
-        Rule                $kubernetes['container_name'] ^frontend$ todolist.frontend true
+        Rule                $kubernetes['container_name'] frontend todolist.frontend true
 
     [FILTER]
         Name                parser
@@ -105,8 +105,8 @@ config:
         Logstash_Prefix     todolist
         Replace_Dots        On
         Suppress_Type_Name  On
-        tls                 On
-        tls.verify          Off
+        # tls                 On
+        # tls.verify          Off
         Retry_Limit         False
 
     # Optionnel : Sortie standard (stdout) pour débugger dans les logs du pod
